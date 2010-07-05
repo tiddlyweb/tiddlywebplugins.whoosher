@@ -1,6 +1,6 @@
 
 A TiddlyWeb[1] plugin which provides a Whoosh[2]-based indexing and
-search interface.
+search interface. Requires tiddlyweb 1.1.x.
 
 The plugin:
 
@@ -14,9 +14,7 @@ The plugin:
 See the module documentation for installation and configuration
 instructions: pydoc tiddlywebplugins.whoosher
 
-* Explore methods for dynamically managing the schema.
-  The Whoosh docs suggest that adding fields can be done
-  on the fly.
+Whoosher can also work with tiddlywebplugins.dispather.
 
 [1] http://tiddlyweb.com/
 [2] http://whoosh.ca/
