@@ -49,6 +49,8 @@ from tiddlywebplugins.utils import get_store
 
 from tiddlyweb.manage import make_command
 from tiddlyweb.store import NoTiddlerError
+from tiddlyweb.web.http import HTTP400
+
 import tiddlyweb.web.handler.search
 
 from tiddlyweb.model.tiddler import Tiddler
@@ -132,6 +134,8 @@ def whoosh_search(environ):
     """
     search_query = query_dict_to_search_string(
             environ['tiddlyweb.query']) or ''
+    if not search_query:
+        raise HTTP400('query string required')
     results = search(environ['tiddlyweb.config'], search_query)
     tiddlers = []
     for result in results:
@@ -149,7 +153,7 @@ def index_query(environ, **kwargs):
     the provided arguments.
     """
     config = environ['tiddlyweb.config']
-    #store = environ['tiddlyweb.store']
+    store = environ['tiddlyweb.store']
     query_parts = []
     for field, value in kwargs.items():
         if field == 'tag':
@@ -167,11 +171,12 @@ def index_query(environ, **kwargs):
     def tiddler_from_result(result):
         bag, title = result['id'].split(':', 1)
         tiddler = Tiddler(title, bag)
-        return tiddler
-        #return store.get(tiddler)
+        return store.get(tiddler)
 
     for result in results:
         yield tiddler_from_result(result)
+
+    results.searcher.ixreader.close()
     return
 
 
