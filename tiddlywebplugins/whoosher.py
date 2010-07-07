@@ -36,11 +36,12 @@ and wsearch.default_fields can be set. _Read the code_ to understand how
 these can be used.
 """
 import os
+import sys
 
 import logging
 import time
 
-from whoosh.index import create_in, open_dir, EmptyIndexError
+from whoosh.index import exists_in, create_in, open_dir, EmptyIndexError
 from whoosh.fields import Schema, ID, KEYWORD, TEXT
 from whoosh.qparser import MultifieldParser, QueryParser
 from whoosh.store import LockError
@@ -76,9 +77,6 @@ SEARCH_DEFAULTS = {
         'wsearch.default_fields': ['text', 'title'],
         }
 
-SEARCHER = None
-PARSER = None
-
 
 def init(config):
     if __name__ not in config.get('beanstalk.listeners', []):
@@ -103,22 +101,29 @@ def init(config):
         store = get_store(config)
         schema = config.get('wsearch.schema',
                 SEARCH_DEFAULTS['wsearch.schema'])
-        for bag in store.list_bags():
-            writer = get_writer(config)
-            if writer:
+        if __name__ in config.get('beanstalk.listeners', []):
+            _reindex_async(config)
+        else:
+            for bag in store.list_bags():
                 bag = store.get(bag)
-                try:
-                    tiddlers = bag.get_tiddlers()
-                except AttributeError:
-                    tiddlers = store.list_bag_tiddlers(bag)
-                for tiddler in tiddlers:
-                    if prefix and not tiddler.title.startswith(prefix):
-                        continue
-                    tiddler = store.get(tiddler)
-                    index_tiddler(tiddler, schema, writer)
-                writer.commit()
-            else:
-                logging.debug('unable to get writer (locked) for %s', bag.name)
+                writer = get_writer(config)
+                if writer:
+                    try:
+                        try:
+                            tiddlers = bag.get_tiddlers()
+                        except AttributeError:
+                            tiddlers = store.list_bag_tiddlers(bag)
+                        for tiddler in tiddlers:
+                            if prefix and not tiddler.title.startswith(prefix):
+                                continue
+                            tiddler = store.get(tiddler)
+                            index_tiddler(tiddler, schema, writer)
+                        writer.commit()
+                    except:
+                        logging.debug('whoosher: exception while indexing: %s', sys.exc_info())
+                        writer.cancel()
+                else:
+                    logging.debug('whoosher: unable to get writer (locked) for %s', bag.name)
 
     @make_command()
     def woptimize(args):
@@ -165,7 +170,7 @@ def index_query(environ, **kwargs):
     searcher = get_searcher(config)
     parser = QueryParser('text', schema=Schema(**schema))
     query = parser.parse(query_string)
-    logging.debug('filter index query parsed to %s' % query)
+    logging.debug('whoosher: filter index query parsed to %s' % query)
     results = searcher.search(query)
 
     def tiddler_from_result(result):
@@ -176,7 +181,7 @@ def index_query(environ, **kwargs):
     for result in results:
         yield tiddler_from_result(result)
 
-    results.searcher.ixreader.close()
+    searcher.close()
     return
 
 
@@ -191,9 +196,12 @@ def get_index(config):
             SEARCH_DEFAULTS['wsearch.indexdir'])
     if not os.path.isabs(index_dir):
         index_dir = os.path.join(config.get('root_dir', ''), index_dir)
-    try:
+
+    if exists_in(index_dir):
+        # For now don't trap exceptions, as we don't know what they
+        # will be and so we want them to raise destructively.
         index = open_dir(index_dir)
-    except (IOError, EmptyIndexError):
+    else:
         try:
             os.mkdir(index_dir)
         except OSError:
@@ -210,12 +218,15 @@ def get_writer(config):
     """
     writer = None
     attempts = 0
-    while writer == None and attempts < 5:
-        attempts += 1
-        try:
-            writer = get_index(config).writer()
-        except LockError, exc:
-            time.sleep(.1)
+    try:
+        while writer == None and attempts < 5:
+            attempts += 1
+            try:
+                writer = get_index(config).writer()
+            except LockError, exc:
+                time.sleep(.1)
+    except:
+        logging.debug('whoosher: exception getting writer: %s', sys.exc_info())
     return writer
 
 
@@ -246,15 +257,16 @@ def search(config, query):
     searcher = get_searcher(config)
     limit = config.get('wsearch.results_limit', 51)
     query = query_parse(config, unicode(query))
-    logging.debug('query parsed to %s' % query)
-    return searcher.search(query, limit=limit)
+    logging.debug('whoosher: query parsed to %s' % query)
+    results = searcher.search(query, limit=limit)
+    return results
 
 
 def delete_tiddler(tiddler, writer):
     """
     Delete the named tiddler from the index.
     """
-    logging.debug('deleting tiddler: %s:%s', tiddler.bag, tiddler.title)
+    logging.debug('whoosher: deleting tiddler: %s:%s', tiddler.bag, tiddler.title)
     id = _tiddler_id(tiddler)
     writer.delete_by_term('id', id)
 
@@ -267,7 +279,7 @@ def index_tiddler(tiddler, schema, writer):
     The schema dict is read to find attributes and fields
     on the tiddler.
     """
-    logging.debug('indexing tiddler: %s:%s', tiddler.bag, tiddler.title)
+    logging.debug('whoosher: indexing tiddler: %s:%s', tiddler.bag, tiddler.title)
     data = {}
     for key in schema:
         try:
@@ -298,17 +310,21 @@ def _tiddler_written_handler(storage, tiddler):
     schema = storage.environ['tiddlyweb.config'].get('wsearch.schema',
             SEARCH_DEFAULTS['wsearch.schema'])
     writer = get_writer(storage.environ['tiddlyweb.config'])
+    store = storage.environ.get('tiddlyweb.store',
+            get_store(storage.environ['tiddlyweb.config']))
     if writer:
         try:
-            store = storage.environ.get('tiddlyweb.store',
-                    get_store(storage.environ['tiddlyweb.config']))
-            temp_tiddler = store.get(Tiddler(tiddler.title, tiddler.bag))
-            index_tiddler(tiddler, schema, writer)
-        except NoTiddlerError:
-            delete_tiddler(tiddler, writer)
-        writer.commit()
+            try:
+                temp_tiddler = store.get(Tiddler(tiddler.title, tiddler.bag))
+                index_tiddler(tiddler, schema, writer)
+            except NoTiddlerError:
+                delete_tiddler(tiddler, writer)
+            writer.commit()
+        except:
+            logging.debug('whoosher: exception while indexing: %s', sys.exc_info())
+            writer.cancel()
     else:
-        logging.debug('unable to get writer (locked) for %s:%s',
+        logging.debug('whoosher: unable to get writer (locked) for %s:%s',
                 tiddler.bag, tiddler.title)
 
 
@@ -358,32 +374,66 @@ def query_dict_to_search_string(query_dict):
     return ' '.join(terms)
 
 
+def _reindex_async(config):
+    from tiddlywebplugins.dispatcher.listener import (DEFAULT_BEANSTALK_HOST,
+            DEFAULT_BEANSTALK_PORT, BODY_SEPARATOR)
+    import beanstalkc
+    beanstalk_host = config.get('beanstalk.host', DEFAULT_BEANSTALK_HOST)
+    beanstalk_port = config.get('beanstalk.port', DEFAULT_BEANSTALK_PORT)
+    beanstalk = beanstalkc.Connection(host=beanstalk_host,
+            port=beanstalk_port)
+    username = 'admin'
+    beanstalk.use('index')
+    store = get_store(config)
+
+    for bag in store.list_bags():
+        bag = store.get(bag)
+        try:
+            tiddlers = bag.get_tiddlers()
+        except AttributeError:
+            tiddlers = store.list_bag_tiddlers(bag)
+        for tiddler in tiddlers:
+            tiddler = store.get(tiddler)
+            data = BODY_SEPARATOR.join([username, tiddler.bag, tiddler.title,
+                str(tiddler.revision)])
+            try:
+                beanstalk.put(data.encode('UTF-8'))
+            except beanstalkc.SocketError, exc:
+                logging.error('unable to write to beanstalkd for %s:%s: %s',
+                        tiddler.bag, tiddler.title, exc)
+
+
 try:
     from tiddlywebplugins.dispatcher.listener import Listener as BaseListener
 
     class Listener(BaseListener):
 
         TUBE = 'index'
+        STORE = None
 
         def _act(self, job):
-            info = self._unpack(job)
             config = self.config
+            if not self.STORE:
+                self.STORE = get_store(config)
+            info = self._unpack(job)
             schema = config.get('wsearch.schema',
                     SEARCH_DEFAULTS['wsearch.schema'])
             tiddler = Tiddler(info['tiddler'], info['bag'])
             writer = get_writer(config)
             if writer:
                 try:
-                    store = get_store(config)
-                    tiddler = store.get(tiddler)
-                    index_tiddler(tiddler, schema, writer)
-                except NoTiddlerError:
-                    delete_tiddler(tiddler, writer)
-                writer.commit()
+                    try:
+                        tiddler = self.STORE.get(tiddler)
+                        index_tiddler(tiddler, schema, writer)
+                    except NoTiddlerError:
+                        delete_tiddler(tiddler, writer)
+                    writer.commit()
+                except:
+                    logging.debug('whoosher: exception while indexing: %s', sys.exc_info())
+                    writer.cancel()
             else:
-                logging.debug('unable to get writer (locked) for %s:%s',
+                logging.debug('whoosher: unable to get writer (locked) for %s:%s',
                         tiddler.bag, tiddler.title)
-
 
 except ImportError:
     pass
