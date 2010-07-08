@@ -48,6 +48,7 @@ from whoosh.store import LockError
 
 from tiddlywebplugins.utils import get_store
 
+from tiddlyweb.filters import FilterIndexRefused
 from tiddlyweb.manage import make_command
 from tiddlyweb.store import NoTiddlerError
 from tiddlyweb.web.http import HTTP400
@@ -120,7 +121,9 @@ def init(config):
                             index_tiddler(tiddler, schema, writer)
                         writer.commit()
                     except:
-                        logging.debug('whoosher: exception while indexing: %s', sys.exc_info())
+                        exc, value, traceback = sys.exc_info()
+                        logging.debug('whoosher: exception while indexing: %s:%s:%s', exc, value,
+                                traceback.format_exc())
                         writer.cancel()
                 else:
                     logging.debug('whoosher: unable to get writer (locked) for %s', bag.name)
@@ -166,12 +169,18 @@ def index_query(environ, **kwargs):
         query_parts.append('%s:%s' % (field, value))
     query_string = ' '.join(query_parts)
 
-    schema = config.get('wsearch.schema', SEARCH_DEFAULTS['wsearch.schema'])
-    searcher = get_searcher(config)
-    parser = QueryParser('text', schema=Schema(**schema))
-    query = parser.parse(query_string)
-    logging.debug('whoosher: filter index query parsed to %s' % query)
-    results = searcher.search(query)
+    try:
+        schema = config.get('wsearch.schema', SEARCH_DEFAULTS['wsearch.schema'])
+        searcher = get_searcher(config)
+        parser = QueryParser('text', schema=Schema(**schema))
+        query = parser.parse(query_string)
+        logging.debug('whoosher: filter index query parsed to %s' % query)
+        results = searcher.search(query)
+    except:
+        exc, value, traceback = sys.exc_info()
+        logging.debug('whoosher: exception during index_query: %s:%s:%s', exc,
+                value, traceback.format_exc())
+        raise FilterIndexRefused
 
     def tiddler_from_result(result):
         bag, title = result['id'].split(':', 1)
@@ -226,7 +235,9 @@ def get_writer(config):
             except LockError, exc:
                 time.sleep(.1)
     except:
-        logging.debug('whoosher: exception getting writer: %s', sys.exc_info())
+        exc, value, traceback = sys.exc_info()
+        logging.debug('whoosher: exception getting writer: %s:%s:%s', exc,
+                value, traceback.format_exc())
     return writer
 
 
@@ -321,7 +332,9 @@ def _tiddler_written_handler(storage, tiddler):
                 delete_tiddler(tiddler, writer)
             writer.commit()
         except:
-            logging.debug('whoosher: exception while indexing: %s', sys.exc_info())
+            exc, value, traceback = sys.exc_info()
+            logging.debug('whoosher: exception while indexing: %s:%s:%s', exc,
+                    value, traceback.format_exc())
             writer.cancel()
     else:
         logging.debug('whoosher: unable to get writer (locked) for %s:%s',
@@ -429,7 +442,9 @@ try:
                         delete_tiddler(tiddler, writer)
                     writer.commit()
                 except:
-                    logging.debug('whoosher: exception while indexing: %s', sys.exc_info())
+                    exc, value, traceback = sys.exc_info()
+                    logging.debug('whoosher: exception while indexing: %s:%s:%s', exc, value,
+                            traceback.format_exc())
                     writer.cancel()
             else:
                 logging.debug('whoosher: unable to get writer (locked) for %s:%s',
