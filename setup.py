@@ -2,7 +2,7 @@
 import os
 from setuptools import setup, find_packages
 
-VERSION = '0.9.9'
+VERSION = '0.9.10'
 
 setup(
         namespace_packages = ['tiddlywebplugins'],

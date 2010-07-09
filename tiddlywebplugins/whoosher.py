@@ -41,6 +41,8 @@ import sys
 import logging
 import time
 
+from traceback import format_exc
+
 from whoosh.index import exists_in, create_in, open_dir, EmptyIndexError
 from whoosh.fields import Schema, ID, KEYWORD, TEXT
 from whoosh.qparser import MultifieldParser, QueryParser
@@ -121,9 +123,8 @@ def init(config):
                             index_tiddler(tiddler, schema, writer)
                         writer.commit()
                     except:
-                        exc, value, traceback = sys.exc_info()
-                        logging.debug('whoosher: exception while indexing: %s:%s:%s', exc, value,
-                                traceback.format_exc())
+                        logging.debug('whoosher: exception while indexing: %s',
+                                format_exc())
                         writer.cancel()
                 else:
                     logging.debug('whoosher: unable to get writer (locked) for %s', bag.name)
@@ -177,9 +178,7 @@ def index_query(environ, **kwargs):
         logging.debug('whoosher: filter index query parsed to %s' % query)
         results = searcher.search(query)
     except:
-        exc, value, traceback = sys.exc_info()
-        logging.debug('whoosher: exception during index_query: %s:%s:%s', exc,
-                value, traceback.format_exc())
+        logging.debug('whoosher: exception during index_query: %s', format_exc())
         raise FilterIndexRefused
 
     def tiddler_from_result(result):
@@ -235,9 +234,7 @@ def get_writer(config):
             except LockError, exc:
                 time.sleep(.1)
     except:
-        exc, value, traceback = sys.exc_info()
-        logging.debug('whoosher: exception getting writer: %s:%s:%s', exc,
-                value, traceback.format_exc())
+        logging.debug('whoosher: exception getting writer: %s', format_exc())
     return writer
 
 
@@ -332,9 +329,7 @@ def _tiddler_written_handler(storage, tiddler):
                 delete_tiddler(tiddler, writer)
             writer.commit()
         except:
-            exc, value, traceback = sys.exc_info()
-            logging.debug('whoosher: exception while indexing: %s:%s:%s', exc,
-                    value, traceback.format_exc())
+            logging.debug('whoosher: exception while indexing: %s', format_exc())
             writer.cancel()
     else:
         logging.debug('whoosher: unable to get writer (locked) for %s:%s',
@@ -442,9 +437,8 @@ try:
                         delete_tiddler(tiddler, writer)
                     writer.commit()
                 except:
-                    exc, value, traceback = sys.exc_info()
-                    logging.debug('whoosher: exception while indexing: %s:%s:%s', exc, value,
-                            traceback.format_exc())
+                    logging.debug('whoosher: exception while indexing: %s',
+                            format_exc())
                     writer.cancel()
             else:
                 logging.debug('whoosher: unable to get writer (locked) for %s:%s',
