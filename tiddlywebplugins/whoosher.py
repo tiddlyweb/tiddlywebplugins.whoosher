@@ -226,8 +226,9 @@ def get_writer(config):
     """
     writer = None
     attempts = 0
+    limit = config.get('wsearch.lockattempts', 5)
     try:
-        while writer == None and attempts < 5:
+        while writer == None and attempts < limit:
             attempts += 1
             try:
                 writer = get_index(config).writer()
