@@ -47,6 +47,7 @@ from whoosh.index import exists_in, create_in, open_dir, EmptyIndexError
 from whoosh.fields import Schema, ID, KEYWORD, TEXT
 from whoosh.qparser import MultifieldParser, QueryParser
 from whoosh.store import LockError
+from whoosh.support.pyparsing import ParseException
 
 from tiddlywebplugins.utils import get_store
 
@@ -145,7 +146,10 @@ def whoosh_search(environ):
             environ['tiddlyweb.query']) or ''
     if not search_query:
         raise HTTP400('query string required')
-    results = search(environ['tiddlyweb.config'], search_query)
+    try:
+        results = search(environ['tiddlyweb.config'], search_query)
+    except ParseException, exc:
+        raise HTTP400('malformed query string: %s' % exc)
     tiddlers = []
     for result in results:
         bag, title = result['id'].split(':', 1)
