@@ -171,7 +171,7 @@ def index_query(environ, **kwargs):
     for field, value in kwargs.items():
         if field == 'tag':
             field = 'tags'
-        query_parts.append('%s:%s' % (field, value))
+        query_parts.append('%s:"%s"' % (field, value))
     query_string = ' '.join(query_parts)
 
     try:
