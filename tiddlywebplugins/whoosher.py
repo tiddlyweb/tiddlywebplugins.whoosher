@@ -60,7 +60,7 @@ import tiddlyweb.web.handler.search
 
 from tiddlyweb.model.tiddler import Tiddler
 
-from tiddlyweb.stores import TIDDLER_WRITTEN_HANDLERS
+from tiddlyweb.store import HOOKS
 
 IGNORE_PARAMS = []
 
@@ -84,7 +84,9 @@ SEARCH_DEFAULTS = {
 
 def init(config):
     if __name__ not in config.get('beanstalk.listeners', []):
-        TIDDLER_WRITTEN_HANDLERS.append(_tiddler_written_handler)
+        # tiddler_change handles both put and deleted tiddlers
+        HOOKS['tiddler']['put'].append(_tiddler_change_handler)
+        HOOKS['tiddler']['delete'].append(_tiddler_change_handler)
 
     @make_command()
     def wsearch(args):
@@ -319,7 +321,7 @@ def _tiddler_id(tiddler):
     return '%s:%s' % (tiddler.bag, tiddler.title)
 
 
-def _tiddler_written_handler(storage, tiddler):
+def _tiddler_change_handler(storage, tiddler):
     schema = storage.environ['tiddlyweb.config'].get('wsearch.schema',
             SEARCH_DEFAULTS['wsearch.schema'])
     writer = get_writer(storage.environ['tiddlyweb.config'])
