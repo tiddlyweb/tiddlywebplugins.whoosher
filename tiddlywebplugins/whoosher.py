@@ -36,14 +36,13 @@ and wsearch.default_fields can be set. _Read the code_ to understand how
 these can be used.
 """
 import os
-import sys
 
 import logging
 import time
 
 from traceback import format_exc
 
-from whoosh.index import exists_in, create_in, open_dir, EmptyIndexError
+from whoosh.index import exists_in, create_in, open_dir
 from whoosh.fields import Schema, ID, KEYWORD, TEXT
 from whoosh.qparser import MultifieldParser, QueryParser
 from whoosh.store import LockError
@@ -130,7 +129,8 @@ def init(config):
                                 format_exc())
                         writer.cancel()
                 else:
-                    logging.debug('whoosher: unable to get writer (locked) for %s', bag.name)
+                    logging.debug('whoosher: unable to get writer '
+                            '(locked) for %s', bag.name)
 
     @make_command()
     def woptimize(args):
@@ -177,14 +177,16 @@ def index_query(environ, **kwargs):
     query_string = ' '.join(query_parts)
 
     try:
-        schema = config.get('wsearch.schema', SEARCH_DEFAULTS['wsearch.schema'])
+        schema = config.get('wsearch.schema',
+                SEARCH_DEFAULTS['wsearch.schema'])
         searcher = get_searcher(config)
         parser = QueryParser('text', schema=Schema(**schema))
         query = parser.parse(query_string)
-        logging.debug('whoosher: filter index query parsed to %s' % query)
+        logging.debug('whoosher: filter index query parsed to %s', query)
         results = searcher.search(query)
     except:
-        logging.debug('whoosher: exception during index_query: %s', format_exc())
+        logging.debug('whoosher: exception during index_query: %s',
+                format_exc())
         raise FilterIndexRefused
 
     def tiddler_from_result(result):
@@ -238,10 +240,11 @@ def get_writer(config):
             attempts += 1
             try:
                 writer = get_index(config).writer()
-            except LockError, exc:
+            except LockError:
                 time.sleep(.1)
     except:
-        logging.debug('whoosher: exception getting writer: %s', format_exc())
+        logging.debug('whoosher: exception getting writer: %s',
+                format_exc())
     return writer
 
 
@@ -272,7 +275,7 @@ def search(config, query):
     searcher = get_searcher(config)
     limit = config.get('wsearch.results_limit', 51)
     query = query_parse(config, unicode(query))
-    logging.debug('whoosher: query parsed to %s' % query)
+    logging.debug('whoosher: query parsed to %s', query)
     results = searcher.search(query, limit=limit)
     return results
 
@@ -281,9 +284,9 @@ def delete_tiddler(tiddler, writer):
     """
     Delete the named tiddler from the index.
     """
-    logging.debug('whoosher: deleting tiddler: %s:%s', tiddler.bag, tiddler.title)
-    id = _tiddler_id(tiddler)
-    writer.delete_by_term('id', id)
+    logging.debug('whoosher: deleting tiddler: %s:%s', tiddler.bag,
+            tiddler.title)
+    writer.delete_by_term('id', _tiddler_id(tiddler))
 
 
 def index_tiddler(tiddler, schema, writer):
@@ -294,7 +297,8 @@ def index_tiddler(tiddler, schema, writer):
     The schema dict is read to find attributes and fields
     on the tiddler.
     """
-    logging.debug('whoosher: indexing tiddler: %s:%s', tiddler.bag, tiddler.title)
+    logging.debug('whoosher: indexing tiddler: %s:%s', tiddler.bag,
+            tiddler.title)
     data = {}
     for key in schema:
         try:
@@ -330,13 +334,14 @@ def _tiddler_change_handler(storage, tiddler):
     if writer:
         try:
             try:
-                temp_tiddler = store.get(Tiddler(tiddler.title, tiddler.bag))
+                store.get(Tiddler(tiddler.title, tiddler.bag))
                 index_tiddler(tiddler, schema, writer)
             except NoTiddlerError:
                 delete_tiddler(tiddler, writer)
             writer.commit()
         except:
-            logging.debug('whoosher: exception while indexing: %s', format_exc())
+            logging.debug('whoosher: exception while indexing: %s',
+                    format_exc())
             writer.cancel()
     else:
         logging.debug('whoosher: unable to get writer (locked) for %s:%s',
@@ -448,8 +453,8 @@ try:
                             format_exc())
                     writer.cancel()
             else:
-                logging.debug('whoosher: unable to get writer (locked) for %s:%s',
-                        tiddler.bag, tiddler.title)
+                logging.debug('whoosher: unable to get writer (locked)'
+                        'for %s:%s', tiddler.bag, tiddler.title)
 
 except ImportError:
     pass
