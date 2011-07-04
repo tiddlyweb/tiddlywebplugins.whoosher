@@ -52,6 +52,7 @@ from tiddlywebplugins.utils import get_store
 
 from tiddlyweb.filters import FilterIndexRefused
 from tiddlyweb.manage import make_command
+from tiddlyweb.util import binary_tiddler
 from tiddlyweb.store import NoTiddlerError
 from tiddlyweb.web.http import HTTP400
 
@@ -297,6 +298,8 @@ def index_tiddler(tiddler, schema, writer):
     The schema dict is read to find attributes and fields
     on the tiddler.
     """
+    if binary_tiddler(tiddler):
+        return
     logging.debug('whoosher: indexing tiddler: %s:%s', tiddler.bag,
             tiddler.title)
     data = {}
