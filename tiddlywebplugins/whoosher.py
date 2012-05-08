@@ -44,6 +44,9 @@ from traceback import format_exc
 
 from whoosh.index import exists_in, create_in, open_dir
 from whoosh.fields import Schema, ID, KEYWORD, TEXT
+from whoosh.analysis import StemmingAnalyzer
+
+
 from whoosh.qparser import MultifieldParser, QueryParser
 from whoosh.store import LockError
 from whoosh.qparser.common import QueryParserError
@@ -65,21 +68,21 @@ from tiddlyweb.store import HOOKS
 IGNORE_PARAMS = []
 
 SEARCH_DEFAULTS = {
-        'wsearch.schema': {'title': TEXT,
+        'wsearch.schema': {
+            'title': TEXT(field_boost=1.75),
             'id': ID(stored=True, unique=True),
-            'ftitle': ID,
             'bag': TEXT,
-            'fbag': ID,
-            'text': TEXT,
+            'text': TEXT(analyzer=StemmingAnalyzer()),
             'modified': ID,
             'modifier': ID,
             'created': ID,
-            'tags': KEYWORD(scorable=True, lowercase=True),
-            'field_1': TEXT,
-            'field_2': TEXT},
+            'creator': ID,
+            'tags': KEYWORD(field_boost=1.5, scorable=True, lowercase=True),
+        },
         'wsearch.indexdir': 'indexdir',
+        #'wsearch.default_fields': ['title', 'tags', 'text'],
         'wsearch.default_fields': ['text', 'title'],
-        }
+}
 
 
 def init(config):
@@ -139,6 +142,43 @@ def init(config):
         index = get_index(config)
         index.optimize()
 
+    if 'selector' in config:
+        handler = config.get('wsearch.handler')
+        if handler:
+            config['selector'].add('/%s[.{format}]' % handler, GET=wsearch)
+        else:
+            replace_handler(config['selector'], '/search[.{format}]',
+                    dict(GET=wsearch))
+
+
+def wsearch(environ, start_response):
+    store = environ['tiddlyweb.store']
+    filters = environ['tiddlyweb.filters']
+    search_query = get_search_query(environ)
+    title = 'Search for %s' % search_query
+    title = environ['tiddlyweb.query'].get('title', [title])[0]
+
+    try:
+        tiddlers = whoosh_tiddlers(environ)
+
+        usersign = environ['tiddlyweb.usersign']
+
+        if filters:
+            candidate_tiddlers = Tiddlers(title=title)
+        else:
+            candidate_tiddlers = Tiddlers(title=title, store=store)
+        candidate_tiddlers.is_search = True
+
+        for tiddler in readable_tiddlers_by_bag(store, tiddlers, usersign):
+            candidate_tiddlers.add(tiddler)
+
+    except StoreMethodNotImplemented:
+        raise HTTP400('Search system not implemented')
+    except StoreError, exc:
+        raise HTTP400('Error while processing search: %s' % exc)
+
+    return send_tiddlers(environ, start_response, tiddlers=candidate_tiddlers)
+
 
 def whoosh_search(environ):
     """
@@ -159,47 +199,6 @@ def whoosh_search(environ):
         tiddler = Tiddler(title, bag)
         tiddlers.append(tiddler)
     return tiddlers
-
-tiddlyweb.web.handler.search.get_tiddlers = whoosh_search
-
-
-def index_query(environ, **kwargs):
-    """
-    Return a generator of tiddlers that match
-    the provided arguments.
-    """
-    config = environ['tiddlyweb.config']
-    store = environ['tiddlyweb.store']
-    query_parts = []
-    for field, value in kwargs.items():
-        if field == 'tag':
-            field = 'tags'
-        query_parts.append('%s:"%s"' % (field, value))
-    query_string = ' '.join(query_parts)
-
-    try:
-        schema = config.get('wsearch.schema',
-                SEARCH_DEFAULTS['wsearch.schema'])
-        searcher = get_searcher(config)
-        parser = QueryParser('text', schema=Schema(**schema))
-        query = parser.parse(query_string)
-        logging.debug('whoosher: filter index query parsed to %s', query)
-        results = searcher.search(query)
-    except:
-        logging.debug('whoosher: exception during index_query: %s',
-                format_exc())
-        raise FilterIndexRefused
-
-    def tiddler_from_result(result):
-        bag, title = result['id'].split(':', 1)
-        tiddler = Tiddler(title, bag)
-        return store.get(tiddler)
-
-    for result in results:
-        yield tiddler_from_result(result)
-
-    searcher.close()
-    return
 
 
 def get_index(config):
@@ -273,10 +272,10 @@ def search(config, query):
     Perform a search, returning a whoosh result
     set.
     """
-    searcher = get_searcher(config)
     limit = config.get('wsearch.results_limit', 51)
     query = query_parse(config, unicode(query))
     logging.debug('whoosher: query parsed to %s', query)
+    searcher =  get_searcher(config)
     results = searcher.search(query, limit=limit)
     return results
 
@@ -319,8 +318,6 @@ def index_tiddler(tiddler, schema, writer):
         except UnicodeDecodeError, exc:
             pass
     data['id'] = _tiddler_id(tiddler)
-    data['ftitle'] = tiddler.title
-    data['fbag'] = tiddler.bag
     writer.update_document(**data)
 
 
@@ -349,52 +346,6 @@ def _tiddler_change_handler(storage, tiddler):
     else:
         logging.debug('whoosher: unable to get writer (locked) for %s:%s',
                 tiddler.bag, tiddler.title)
-
-
-def query_dict_to_search_string(query_dict):
-    terms = []
-    while query_dict:
-        keys = query_dict.keys()
-        key = keys.pop()
-        values = query_dict[key]
-        del query_dict[key]
-        if key in IGNORE_PARAMS:
-            continue
-
-        if key == 'q':
-            terms.extend([value for value in values])
-        else:
-            if key.endswith('_field'):
-                prefix = key.rsplit('_', 1)[0]
-                value_key = '%s_value' % prefix
-                key = values[0].lower().replace(' ', '_')
-                try:
-                    values = query_dict[value_key]
-                    del query_dict[value_key]
-                except KeyError:
-                    values = []
-                if not values:
-                    continue
-            elif key.endswith('_value'):
-                prefix = key.rsplit('_', 1)[0]
-                field_key = '%s_field' % prefix
-                try:
-                    key = query_dict[field_key][0].lower().replace(' ', '_')
-                    del query_dict[field_key]
-                except KeyError:
-                    key = ''
-                if not key:
-                    continue
-
-            if key == 'avid' and not values[0].isdigit():
-                continue
-
-            for value in values:
-                if ' ' in key or ' ' in value:
-                    terms.append('%s:"%s"' % (key.lower(), value.lower()))
-                else:
-                    terms.append('%s:%s' % (key.lower(), value.lower()))
-    return ' '.join(terms)
 
 
 def _reindex_async(config):

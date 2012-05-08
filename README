@@ -1,11 +1,11 @@
 
 A TiddlyWeb[1] plugin which provides a Whoosh[2]-based indexing and
-search interface. Requires tiddlyweb 1.1.x.
+search interface. Requires tiddlyweb 1.2.x.
 
 The plugin:
 
-* Replaces the search interface of the store that is in use (if any).
-* Provides a system for structured queries of the index.
+* Depending on configuration replaces the search interface of the store
+  that is in use (if any) or adds an additional search URI.
 * Automatically updates the index when a new tiddler is written to 
   the store.
 * Provides twanager commands for reindexing the entire store, and
@@ -14,7 +14,7 @@ The plugin:
 See the module documentation for installation and configuration
 instructions: pydoc tiddlywebplugins.whoosher
 
-Whoosher can also work with tiddlywebplugins.dispather.
+Whoosher can also work with tiddlywebplugins.dispatcher.
 
 [1] http://tiddlyweb.com/
 [2] http://whoosh.ca/
