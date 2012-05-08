@@ -80,8 +80,7 @@ SEARCH_DEFAULTS = {
             'tags': KEYWORD(field_boost=1.5, scorable=True, lowercase=True),
         },
         'wsearch.indexdir': 'indexdir',
-        #'wsearch.default_fields': ['title', 'tags', 'text'],
-        'wsearch.default_fields': ['text', 'title'],
+        'wsearch.default_fields': ['title', 'tags', 'text'],
 }
 
 
