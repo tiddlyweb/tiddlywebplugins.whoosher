@@ -187,9 +187,7 @@ def whoosh_search(environ):
     Handle incoming /search?q=<query> and
     return the found tiddlers.
     """
-    search_query = environ['tiddlyweb.query'] or ''
-    if not search_query:
-        raise HTTP400('query string required')
+    search_query = get_search_query(environ)
     try:
         results = search(environ['tiddlyweb.config'], search_query)
     except QueryParserError, exc:
