@@ -47,16 +47,16 @@ from whoosh.fields import Schema, ID, KEYWORD, TEXT
 from whoosh.analysis import StemmingAnalyzer
 
 
-from whoosh.qparser import MultifieldParser, QueryParser
+from whoosh.qparser import MultifieldParser
 from whoosh.store import LockError
 from whoosh.qparser.common import QueryParserError
 
 from tiddlywebplugins.utils import get_store
 
-from tiddlyweb.filters import FilterIndexRefused
 from tiddlyweb.manage import make_command
 from tiddlyweb.util import binary_tiddler
-from tiddlyweb.store import NoTiddlerError, StoreMethodNotImplemented, StoreError, HOOKS
+from tiddlyweb.store import (NoTiddlerError, StoreMethodNotImplemented,
+        StoreError, HOOKS)
 from tiddlyweb.web.http import HTTP400
 
 from tiddlyweb.web.handler.search import get_search_query
@@ -146,7 +146,8 @@ def init(config):
     if 'selector' in config:
         handler = config.get('wsearch.handler')
         if handler:
-            config['selector'].add('/%s[.{format}]' % handler, GET=whoosher_search)
+            config['selector'].add('/%s[.{format}]' % handler,
+                    GET=whoosher_search)
         else:
             replace_handler(config['selector'], '/search[.{format}]',
                     dict(GET=whoosher_search))
@@ -275,7 +276,7 @@ def search(config, query):
     limit = config.get('wsearch.results_limit', 51)
     query = query_parse(config, unicode(query))
     logging.debug('whoosher: query parsed to %s', query)
-    searcher =  get_searcher(config)
+    searcher = get_searcher(config)
     results = searcher.search(query, limit=limit)
     return results
 
