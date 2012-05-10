@@ -56,14 +56,16 @@ from tiddlywebplugins.utils import get_store
 from tiddlyweb.filters import FilterIndexRefused
 from tiddlyweb.manage import make_command
 from tiddlyweb.util import binary_tiddler
-from tiddlyweb.store import NoTiddlerError
+from tiddlyweb.store import NoTiddlerError, StoreMethodNotImplemented, StoreError, HOOKS
 from tiddlyweb.web.http import HTTP400
 
-import tiddlyweb.web.handler.search
+from tiddlyweb.web.handler.search import get_search_query
+from tiddlyweb.web.sendtiddlers import send_tiddlers
 
 from tiddlyweb.model.tiddler import Tiddler
+from tiddlyweb.model.collections import Tiddlers
 
-from tiddlyweb.store import HOOKS
+from tiddlyweb.control import readable_tiddlers_by_bag
 
 IGNORE_PARAMS = []
 
@@ -144,13 +146,13 @@ def init(config):
     if 'selector' in config:
         handler = config.get('wsearch.handler')
         if handler:
-            config['selector'].add('/%s[.{format}]' % handler, GET=wsearch)
+            config['selector'].add('/%s[.{format}]' % handler, GET=whoosher_search)
         else:
             replace_handler(config['selector'], '/search[.{format}]',
-                    dict(GET=wsearch))
+                    dict(GET=whoosher_search))
 
 
-def wsearch(environ, start_response):
+def whoosher_search(environ, start_response):
     store = environ['tiddlyweb.store']
     filters = environ['tiddlyweb.filters']
     search_query = get_search_query(environ)
@@ -158,7 +160,7 @@ def wsearch(environ, start_response):
     title = environ['tiddlyweb.query'].get('title', [title])[0]
 
     try:
-        tiddlers = whoosh_tiddlers(environ)
+        tiddlers = whoosh_search(environ)
 
         usersign = environ['tiddlyweb.usersign']
 
@@ -184,8 +186,7 @@ def whoosh_search(environ):
     Handle incoming /search?q=<query> and
     return the found tiddlers.
     """
-    search_query = query_dict_to_search_string(
-            environ['tiddlyweb.query']) or ''
+    search_query = environ['tiddlyweb.query'] or ''
     if not search_query:
         raise HTTP400('query string required')
     try:
