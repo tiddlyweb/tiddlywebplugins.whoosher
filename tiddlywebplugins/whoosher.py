@@ -149,7 +149,7 @@ def init(config):
             config['selector'].add('/%s[.{format}]' % handler,
                     GET=whoosher_search)
         else:
-            replace_handler(config['selector'], '/search[.{format}]',
+            replace_handler(config['selector'], '/search',
                     dict(GET=whoosher_search))
 
 
