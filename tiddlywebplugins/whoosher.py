@@ -51,7 +51,7 @@ from whoosh.qparser import MultifieldParser
 from whoosh.store import LockError
 from whoosh.qparser.common import QueryParserError
 
-from tiddlywebplugins.utils import get_store
+from tiddlywebplugins.utils import get_store, replace_handler
 
 from tiddlyweb.manage import make_command
 from tiddlyweb.util import binary_tiddler
