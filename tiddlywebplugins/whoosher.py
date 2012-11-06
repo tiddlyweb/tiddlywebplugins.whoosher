@@ -79,7 +79,8 @@ SEARCH_DEFAULTS = {
             'modifier': ID,
             'created': ID,
             'creator': ID,
-            'tags': KEYWORD(field_boost=1.5, scorable=True, lowercase=True),
+            'tags': KEYWORD(field_boost=1.5, commas=True, scorable=True,
+                lowercase=True),
         },
         'wsearch.indexdir': 'indexdir',
         'wsearch.default_fields': ['title', 'tags', 'text'],
@@ -99,7 +100,7 @@ def init(config):
         ids = search(config, query)
         for result in ids:
             bag, title = result['id'].split(':', 1)
-            print "%s:%s" % (bag, title)
+            print "%s:%s" % (bag.encode('utf-8'), title.encode('utf-8'))
 
     @make_command()
     def wreindex(args):
