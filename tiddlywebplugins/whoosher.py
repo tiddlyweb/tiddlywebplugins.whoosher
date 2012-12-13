@@ -40,6 +40,7 @@ import os
 import logging
 import time
 
+from httpexceptor import HTTP400
 from traceback import format_exc
 
 from whoosh.index import exists_in, create_in, open_dir
@@ -57,7 +58,6 @@ from tiddlyweb.manage import make_command
 from tiddlyweb.util import binary_tiddler
 from tiddlyweb.store import (NoTiddlerError, StoreMethodNotImplemented,
         StoreError, HOOKS)
-from tiddlyweb.web.http import HTTP400
 
 from tiddlyweb.web.handler.search import get_search_query
 from tiddlyweb.web.sendtiddlers import send_tiddlers
