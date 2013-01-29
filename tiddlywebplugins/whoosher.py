@@ -67,6 +67,8 @@ from tiddlyweb.model.collections import Tiddlers
 
 from tiddlyweb.control import readable_tiddlers_by_bag
 
+LOGGER = logging.getLogger(__name__)
+
 IGNORE_PARAMS = []
 
 SEARCH_DEFAULTS = {
@@ -131,11 +133,11 @@ def init(config):
                             index_tiddler(tiddler, schema, writer)
                         writer.commit()
                     except:
-                        logging.debug('whoosher: exception while indexing: %s',
+                        LOGGER.debug('whoosher: exception while indexing: %s',
                                 format_exc())
                         writer.cancel()
                 else:
-                    logging.debug('whoosher: unable to get writer '
+                    LOGGER.debug('whoosher: unable to get writer '
                             '(locked) for %s', bag.name)
 
     @make_command()
@@ -243,7 +245,7 @@ def get_writer(config):
             except LockError:
                 time.sleep(.1)
     except:
-        logging.debug('whoosher: exception getting writer: %s',
+        LOGGER.debug('whoosher: exception getting writer: %s',
                 format_exc())
     return writer
 
@@ -274,7 +276,7 @@ def search(config, query):
     """
     limit = config.get('wsearch.results_limit', 51)
     query = query_parse(config, unicode(query))
-    logging.debug('whoosher: query parsed to %s', query)
+    LOGGER.debug('whoosher: query parsed to %s', query)
     searcher = get_searcher(config)
     results = searcher.search(query, limit=limit)
     return results
@@ -284,7 +286,7 @@ def delete_tiddler(tiddler, writer):
     """
     Delete the named tiddler from the index.
     """
-    logging.debug('whoosher: deleting tiddler: %s:%s', tiddler.bag,
+    LOGGER.debug('whoosher: deleting tiddler: %s:%s', tiddler.bag,
             tiddler.title)
     writer.delete_by_term('id', _tiddler_id(tiddler))
 
@@ -299,7 +301,7 @@ def index_tiddler(tiddler, schema, writer):
     """
     if binary_tiddler(tiddler):
         return
-    logging.debug('whoosher: indexing tiddler: %s:%s', tiddler.bag,
+    LOGGER.debug('whoosher: indexing tiddler: %s:%s', tiddler.bag,
             tiddler.title)
     data = {}
     for key in schema:
@@ -340,11 +342,11 @@ def _tiddler_change_handler(storage, tiddler):
                 delete_tiddler(tiddler, writer)
             writer.commit()
         except:
-            logging.debug('whoosher: exception while indexing: %s',
+            LOGGER.debug('whoosher: exception while indexing: %s',
                     format_exc())
             writer.cancel()
     else:
-        logging.debug('whoosher: unable to get writer (locked) for %s:%s',
+        LOGGER.debug('whoosher: unable to get writer (locked) for %s:%s',
                 tiddler.bag, tiddler.title)
 
 
@@ -373,7 +375,7 @@ def _reindex_async(config):
             try:
                 beanstalk.put(data.encode('UTF-8'))
             except beanstalkc.SocketError, exc:
-                logging.error('unable to write to beanstalkd for %s:%s: %s',
+                LOGGER.error('unable to write to beanstalkd for %s:%s: %s',
                         tiddler.bag, tiddler.title, exc)
 
 
@@ -403,11 +405,11 @@ try:
                         delete_tiddler(tiddler, writer)
                     writer.commit()
                 except:
-                    logging.debug('whoosher: exception while indexing: %s',
+                    LOGGER.debug('whoosher: exception while indexing: %s',
                             format_exc())
                     writer.cancel()
             else:
-                logging.debug('whoosher: unable to get writer (locked)'
+                LOGGER.debug('whoosher: unable to get writer (locked)'
                         'for %s:%s', tiddler.bag, tiddler.title)
 
 except ImportError:
