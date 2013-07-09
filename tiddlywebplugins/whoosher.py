@@ -49,7 +49,10 @@ from whoosh.analysis import StemmingAnalyzer
 
 
 from whoosh.qparser import MultifieldParser
-from whoosh.store import LockError
+try:  # Whoosh >= 2.5.0
+    from whoosh.index import LockError
+except ImportError:
+    from whoosh.store import LockError
 from whoosh.qparser.common import QueryParserError
 
 from tiddlywebplugins.utils import get_store, replace_handler
