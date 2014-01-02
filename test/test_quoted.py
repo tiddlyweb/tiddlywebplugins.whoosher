@@ -33,5 +33,14 @@ def test_search_quoted_phrase():
     store.put(tiddler1)
 
     tiddlers = list(search(config, '"five monkeys"'))
+    assert len(tiddlers) == 1
 
-    print tiddlers
+def test_search_unicode():
+    bag = Bag(u'\u24b6')
+    store.put(bag)
+    tiddler1 = Tiddler(u'\u24b6', bag.name)
+    tiddler1.text = u'oh \u24b6ss'
+    store.put(tiddler1)
+
+    tiddlers = list(search(config, u'\u24b6ss'))
+    assert len(tiddlers) == 1

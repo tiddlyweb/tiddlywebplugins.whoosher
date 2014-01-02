@@ -327,7 +327,7 @@ def index_tiddler(tiddler, schema, writer):
 
 
 def _tiddler_id(tiddler):
-    return '%s:%s' % (tiddler.bag, tiddler.title)
+    return u'%s:%s' % (tiddler.bag, tiddler.title)
 
 
 def _tiddler_change_handler(storage, tiddler):
