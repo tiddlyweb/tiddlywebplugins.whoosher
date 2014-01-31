@@ -35,6 +35,9 @@ to be indexed for a particular installation or application, wsearch.schema
 and wsearch.default_fields can be set. _Read the code_ to understand how
 these can be used.
 """
+
+from __future__ import print_function
+
 import os
 
 import logging
@@ -107,7 +110,7 @@ def init(config):
         ids = search(config, query)
         for result in ids:
             bag, title = result['id'].split(':', 1)
-            print "%s:%s" % (bag.encode('utf-8'), title.encode('utf-8'))
+            print('%s:%s' % (bag, title))
 
     @make_command()
     def wreindex(args):
@@ -184,7 +187,7 @@ def whoosher_search(environ, start_response):
 
     except StoreMethodNotImplemented:
         raise HTTP400('Search system not implemented')
-    except StoreError, exc:
+    except StoreError as exc:
         raise HTTP400('Error while processing search: %s' % exc)
 
     return send_tiddlers(environ, start_response, tiddlers=candidate_tiddlers)
@@ -198,7 +201,7 @@ def whoosh_search(environ):
     search_query = get_search_query(environ)
     try:
         results = search(environ['tiddlyweb.config'], search_query)
-    except QueryParserError, exc:
+    except QueryParserError as exc:
         raise HTTP400('malformed query string: %s' % exc)
     tiddlers = []
     for result in results:
@@ -321,9 +324,9 @@ def index_tiddler(tiddler, schema, writer):
             except AttributeError:
                 value = ','.join(value)
                 data[key] = unicode(value.lower())
-        except (KeyError, TypeError), exc:
+        except (KeyError, TypeError) as exc:
             pass
-        except UnicodeDecodeError, exc:
+        except UnicodeDecodeError as exc:
             pass
     data['id'] = _tiddler_id(tiddler)
     writer.update_document(**data)
@@ -380,7 +383,7 @@ def _reindex_async(config):
                 str(tiddler.revision)])
             try:
                 beanstalk.put(data.encode('UTF-8'))
-            except beanstalkc.SocketError, exc:
+            except beanstalkc.SocketError as exc:
                 LOGGER.error('unable to write to beanstalkd for %s:%s: %s',
                         tiddler.bag, tiddler.title, exc)
 
