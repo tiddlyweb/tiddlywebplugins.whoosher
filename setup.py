@@ -2,14 +2,14 @@
 import os
 from setuptools import setup, find_packages
 
-VERSION = '0.9.25'
+VERSION = '0.9.26'
 
 setup(
         namespace_packages = ['tiddlywebplugins'],
         name = 'tiddlywebplugins.whoosher',
         version = VERSION,
         description = 'A TiddlyWeb plugin that provides an indexed search interface using Whoosh.',
-        long_description=file(os.path.join(os.path.dirname(__file__), 'README')).read(),
+        long_description=open(os.path.join(os.path.dirname(__file__), 'README')).read(),
         author = 'Chris Dent',
         url = 'http://pypi.python.org/pypi/tiddlywebplugins.whoosher',
         packages = find_packages(exclude=['test']),
