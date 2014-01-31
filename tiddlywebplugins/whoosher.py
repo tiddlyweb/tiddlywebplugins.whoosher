@@ -46,6 +46,7 @@ from traceback import format_exc
 from whoosh.index import exists_in, create_in, open_dir
 from whoosh.fields import Schema, ID, KEYWORD, TEXT
 from whoosh.analysis import StemmingAnalyzer
+from whoosh.qparser import FieldAliasPlugin
 
 
 from whoosh.qparser import MultifieldParser
@@ -84,6 +85,7 @@ SEARCH_DEFAULTS = {
             'modifier': ID,
             'created': ID,
             'creator': ID,
+            # tags is aliased with "tag" for convenience
             'tags': KEYWORD(field_boost=1.5, commas=True, scorable=True,
                 lowercase=True),
         },
@@ -269,6 +271,7 @@ def get_parser(config):
 
 def query_parse(config, query):
     parser = get_parser(config)
+    parser.add_plugin(FieldAliasPlugin({"tags": ["tag"]}))
     return parser.parse(query)
 
 
