@@ -89,7 +89,8 @@ SEARCH_DEFAULTS = {
             'created': ID,
             'creator': ID,
             # tags is aliased with "tag" for convenience
-            'tags': KEYWORD(field_boost=1.5, commas=True, scorable=True,
+            'tags': KEYWORD(field_boost=1.5, stored=True,
+                commas=True, scorable=True,
                 lowercase=True),
         },
         'wsearch.indexdir': 'indexdir',
@@ -102,6 +103,16 @@ def init(config):
         # tiddler_change handles both put and deleted tiddlers
         HOOKS['tiddler']['put'].append(_tiddler_change_handler)
         HOOKS['tiddler']['delete'].append(_tiddler_change_handler)
+
+    @make_command()
+    def wtags(args):
+        """List tags used in index."""
+        searcher = get_searcher(config)
+        set_tags = set()
+        for stored_fields in searcher.documents():
+            tags = stored_fields['tags']
+            set_tags.update(stored_fields['tags'].split(','))
+        print('tags: %s' % ', '.join(set_tags))
 
     @make_command()
     def wsearch(args):
