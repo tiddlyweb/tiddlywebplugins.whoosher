@@ -110,7 +110,6 @@ def init(config):
         searcher = get_searcher(config)
         set_tags = set()
         for stored_fields in searcher.documents():
-            tags = stored_fields['tags']
             set_tags.update(stored_fields['tags'].split(','))
         print('tags: %s' % ', '.join(set_tags))
 
