@@ -82,7 +82,7 @@ SEARCH_DEFAULTS = {
         'wsearch.schema': {
             'title': TEXT(field_boost=1.75),
             'id': ID(stored=True, unique=True),
-            'bag': TEXT,
+            'bag': KEYWORD(stored=True),
             'text': TEXT(analyzer=StemmingAnalyzer()),
             'modified': ID,
             'modifier': ID,
